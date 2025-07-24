@@ -1,22 +1,27 @@
 from PIL import Image
-from piet_colors import piet_colors
+import numpy as np
+import sys
+import os
+from piet_interpreter import PietInterpreter
 
-def load_image(path):
-    image = Image.open(path).convert('RGB')
-    pixels = image.load()
-    width, height = image.size
-    return pixels, width, height
+def load_image(filename):
+    image = Image.open(filename).convert('RGB')
+    image_array = np.array(image)
+    return image_array
 
 def main():
-    path = 'HelloWorld.png'
-    pixels, width, height = load_image(path)
+    filename = sys.argv[1] if len(sys.argv) > 1 else 'hello_world.png'
 
-def get_piet_color(rgb):
-    if rgb in piet_colors:
-        return piet_colors[rgb]
-    else:
-        raise ValueError(f'Неизвестный цвет: {rgb}')
+    if not os.path.exists(filename):
+        print(f"Файл не найден: {filename}")
+        return
 
+    try:
+        image_array = load_image(filename)
+        interpreter = PietInterpreter(image_array)
+        interpreter.run()
+    except Exception as e:
+        print("Ошибка при выполнении программы:", e)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
