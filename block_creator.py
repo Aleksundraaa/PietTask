@@ -34,6 +34,94 @@ class PietInterpreter:
             (0, 2): None,
         }
 
+    DP_DELTAS = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+
+    def get_block_id(self, x, y):
+        for block in self.blocks:
+            if (x, y) in block["pixels"]:
+                return block["id"]
+
+        return None
+
+    def get_edge_pixels(self, block):
+        dx, dy = self.DP_DELTAS[self.DP]
+        edge = []
+
+        for x, y in block["pixels"]:
+            new_x, new_y = x + dx, y + dy
+            if 0 <= new_x < self.width and 0 <= new_y < self.height:
+                if self.get_block_id(new_x, new_y) != block["id"]:
+                    edge.append((x, y))
+
+    def get_next_coordinates(self, block):
+        edge_pixels = self.get_edge_pixels(block)
+        if not edge_pixels:
+            return None
+
+        if self.CC == 0:
+            return max(edge_pixels, key=lambda p: (p[1], -p[0]) if self.DP in [0, 2] else (p[0], -p[1]))
+        else:
+            return min(edge_pixels, key=lambda p: (p[1], -p[0]) if self.DP in [0, 2] else (p[0], -p[1]))
+
+    def change_cc_dp(self):
+        if self.CC == 0:
+            self.CC = 1
+
+        else:
+            self.CC = 0
+            self.DP = (self.DP + 1) % 4
+
+    def move(self):
+        for i in range(8):
+            current_block = self.blocks[self.current_block_id]
+            exist_coordinates = self.get_next_coordinates(current_block)
+
+            if not exist_coordinates:
+                self.change_cc_dp()
+                continue
+
+            dx, dy = self.DP_DELTAS[self.DP]
+            x, y = exist_coordinates[0] + dx, exist_coordinates[1] + dy
+
+            if not (0 <= x < self.width and 0 <= y < self.height):
+                self.change_cc_dp()
+                continue
+
+            rgb = self.pixels[x, y]
+            next_color = self.get_piet_color(rgb)
+
+            if next_color == "black" or next_color is None:
+                self.change_cc_dp()
+                continue
+
+            elif next_color == "white":
+                while (0 <= x < self.width and 0 <= y < self.height) and self.get_piet_color(rgb) == "white":
+                    x += dx
+                    y += dy
+                if not (0 <= x < self.width and 0 <= y < self.height):
+                    self.change_cc_dp()
+                    continue
+
+                rgb = self.pixels[x, y]
+                next_color = self.get_piet_color(rgb)
+
+            next_block_id = self.get_block_id(x, y)
+            if next_block_id is not None:
+                self.handle_transition(current_block, self.blocks[next_block_id])
+                self.current_block_id = next_block_id
+                return True
+            self.change_cc_dp()
+
+        return False
+
+    def handle_transition(self, from_block, to_block):
+        if isinstance(from_block["color"], tuple) and isinstance(to_block["color"], tuple):
+            dhue = (to_block["color"][0] - from_block["color"][0]) % 6
+            dlight = (to_block["color"][1] - from_block["color"][1]) % 3
+            command = self.commands.get((dhue, dlight))
+            if command:
+                self.execute_command(command)
+
     @staticmethod
     def get_piet_color(rgb):
         return piet_colors.get(rgb, None)
@@ -117,19 +205,19 @@ class PietInterpreter:
             if len(self.stack) >= 2:
                 a = self.stack.pop()
                 b = self.stack.pop()
-                self.stack.append(b-a)
+                self.stack.append(b - a)
 
         elif command == "mod":
             if len(self.stack) >= 2:
                 a = self.stack.pop()
                 b = self.stack.pop()
-                self.stack.append(b%a)
+                self.stack.append(b % a)
 
         elif command == "divide":
             if len(self.stack) >= 2:
                 a = self.stack.pop()
                 b = self.stack.pop()
-                self.stack.append(b//a)
+                self.stack.append(b // a)
 
         elif command == "not":
             if not self.stack:
@@ -142,7 +230,7 @@ class PietInterpreter:
             if len(self.stack) >= 2:
                 a = self.stack.pop()
                 b = self.stack.pop()
-                self.stack.append(1 if b>a else 0)
+                self.stack.append(1 if b > a else 0)
 
         elif command == "duplicate":
             if not self.stack:
@@ -165,20 +253,19 @@ class PietInterpreter:
                 raise ValueError("Ввод пуст")
 
         elif command == "switch":
-            if self.stack.pop()%2 == 1:
+            if self.stack.pop() % 2 == 1:
                 self.CC = 1 - self.CC
 
         elif command == "out_number":
             value = self.stack.pop()
-            print(value, end = '')
+            print(value, end='')
 
         elif command == "roll":
             n = self.stack.pop()
             m = self.stack.pop()
-            if m>len(self.stack) or m<0:
+            if m > len(self.stack) or m < 0:
                 raise ValueError()
 
             section = self.stack[-m:]
-            n = n%m if m>0 else 0
-            self.stack[-m:] = section[-n:]+section[:-n]
-
+            n = n % m if m > 0 else 0
+            self.stack[-m:] = section[-n:] + section[:-n]
