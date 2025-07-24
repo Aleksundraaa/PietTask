@@ -1,4 +1,5 @@
 from collections import deque
+
 from piet_colors import piet_colors
 
 
@@ -52,6 +53,8 @@ class PietInterpreter:
             if 0 <= new_x < self.width and 0 <= new_y < self.height:
                 if self.get_block_id(new_x, new_y) != block["id"]:
                     edge.append((x, y))
+
+        return edge
 
     def get_next_coordinates(self, block):
         edge_pixels = self.get_edge_pixels(block)
@@ -120,7 +123,7 @@ class PietInterpreter:
             dlight = (to_block["color"][1] - from_block["color"][1]) % 3
             command = self.commands.get((dhue, dlight))
             if command:
-                self.execute_command(command)
+                self.execute_command(command, from_block["size"])
 
     @staticmethod
     def get_piet_color(rgb):
@@ -167,20 +170,20 @@ class PietInterpreter:
             if x < 0 or y < 0 or x >= self.width or y >= self.height:
                 continue
 
-            if visited[x, y]:
+            if visited[x][y]:
                 continue
 
             if self.pixels[x, y] != target_rgb:
                 continue
 
-            visited[x, y] = True
+            visited[x][y] = True
             block.append((x, y))
 
             q.extend(
-                (x + 1, y),
-                (x - 1, y),
-                (x, y - 1),
-                (x, y + 1)
+                [(x + 1, y),
+                 (x - 1, y),
+                 (x, y - 1),
+                 (x, y + 1)]
             )
 
         return block
@@ -217,6 +220,8 @@ class PietInterpreter:
             if len(self.stack) >= 2:
                 a = self.stack.pop()
                 b = self.stack.pop()
+                if a == 0:
+                    raise ZeroDivisionError("Деление на ноль")
                 self.stack.append(b // a)
 
         elif command == "not":
@@ -235,7 +240,7 @@ class PietInterpreter:
         elif command == "duplicate":
             if not self.stack:
                 raise ValueError("Cтек пуст")
-            copy = self.stack[0]
+            copy = self.stack[-1]
             self.stack.append(copy)
 
         elif command == "in_number":
