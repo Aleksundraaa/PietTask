@@ -12,7 +12,7 @@ def load_image(filename):
 
 
 def main():
-    filename = sys.argv[1] if len(sys.argv) > 1 else 'fizzbuzz.png'
+    filename = sys.argv[1] if len(sys.argv) > 1 else 'images/hello.png'
 
     if not os.path.exists(filename):
         print(f"Файл не найден: {filename}")
